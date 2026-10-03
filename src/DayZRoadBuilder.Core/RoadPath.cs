@@ -5,17 +5,17 @@ namespace DayZRoadBuilder.Core
 {
     public struct Projection
     {
-        /// <summary>Quadrat des Abstands zur Linie.</summary>
+        /// <summary>Squared distance to the line.</summary>
         public double Dist2;
-        /// <summary>Bogenlänge (Stationierung) des Lotfußpunkts.</summary>
+        /// <summary>Arc length (chainage) of the closest point.</summary>
         public double S;
-        /// <summary>Index des Segments.</summary>
+        /// <summary>Segment index.</summary>
         public int Segment;
-        /// <summary>+1 = rechts der Linie, -1 = links.</summary>
+        /// <summary>+1 = right of the line, -1 = left.</summary>
         public int Side;
     }
 
-    /// <summary>Die Soll-Linie (Polyline) mit Stationierung und schneller lokaler Projektion.</summary>
+    /// <summary>The target line (polyline) with chainage and fast local projection.</summary>
     public sealed class RoadPath
     {
         public Vec2[] Points { get; private set; }
@@ -32,7 +32,7 @@ namespace DayZRoadBuilder.Core
                     clean.Add(p);
             }
             if (clean.Count < 2)
-                throw new ArgumentException("Die Linie braucht mindestens zwei unterschiedliche Punkte.");
+                throw new ArgumentException("The line needs at least two distinct points.");
 
             Points = clean.ToArray();
             Cum = new double[Points.Length];
@@ -51,7 +51,7 @@ namespace DayZRoadBuilder.Core
             return new RoadPath(list) { Name = Name };
         }
 
-        /// <summary>Index des Segments, das die Stationierung s enthält.</summary>
+        /// <summary>Index of the segment containing chainage s.</summary>
         public int SegmentAt(double s)
         {
             if (s <= 0) return 0;
@@ -79,7 +79,7 @@ namespace DayZRoadBuilder.Core
             return Vec2.Lerp(Points[i], Points[i + 1], t);
         }
 
-        /// <summary>Kurs der Linie gemittelt über die ersten <paramref name="dist"/> Meter.</summary>
+        /// <summary>Bearing of the line averaged over the first <paramref name="dist"/> metres.</summary>
         public double StartHeading(double dist)
         {
             Vec2 p = PointAt(Math.Min(dist, Length));
@@ -87,8 +87,8 @@ namespace DayZRoadBuilder.Core
         }
 
         /// <summary>
-        /// Nächster Punkt auf der Linie, gesucht nur im Stationierungsfenster [s0, s1].
-        /// Das lokale Fenster verhindert Sprünge auf andere Abschnitte bei engen Schleifen.
+        /// Closest point on the line, searched only within the chainage window [s0, s1].
+        /// The local window prevents jumping to other sections of tight loops.
         /// </summary>
         public Projection Project(Vec2 q, double s0, double s1)
         {

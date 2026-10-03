@@ -3,48 +3,48 @@ using System.Collections.Generic;
 
 namespace DayZRoadBuilder.Core
 {
-    /// <summary>Parameter der automatischen Teile-Auswahl.</summary>
+    /// <summary>Parameters of the automatic part selection.</summary>
     public sealed class BuildSettings
     {
-        /// <summary>Anzahl der Kandidaten, die pro Stationierungs-Schritt weiterverfolgt werden. Höher = genauer, langsamer.</summary>
+        /// <summary>Number of candidates kept per chainage step. Higher = more accurate, slower.</summary>
         public int BeamWidth { get; set; } = 12;
-        /// <summary>Raster der Stationierung in Metern.</summary>
+        /// <summary>Chainage bin size in metres.</summary>
         public double BinSize { get; set; } = 0.5;
-        /// <summary>Kosten pro verbautem Teil (größer = lieber lange Teile, etwas mehr Abweichung).</summary>
+        /// <summary>Cost per placed part (higher = prefer long parts, slightly more deviation).</summary>
         public double PiecePenalty { get; set; } = 1.0;
-        /// <summary>Kosten pro Grad Richtungsänderung (verhindert unnötiges Hin- und Herschlängeln).</summary>
+        /// <summary>Cost per degree of heading change (prevents needless wiggling).</summary>
         public double TurnPenalty { get; set; } = 0.05;
-        /// <summary>Gewicht des Richtungsfehlers am Ende jedes Teils (pro Grad²).</summary>
+        /// <summary>Weight of the heading error at the end of each part (per degree²).</summary>
         public double HeadingWeight { get; set; } = 0.02;
-        /// <summary>Gewicht des Abstands zum Linienende (pro m²).</summary>
+        /// <summary>Weight of the distance to the end of the line (per m²).</summary>
         public double EndWeight { get; set; } = 4.0;
-        /// <summary>Maximaler Abstand zum Linienende, ab dem die Straße als fertig gilt.</summary>
+        /// <summary>Maximum distance to the end of the line at which the road counts as finished.</summary>
         public double EndTolerance { get; set; } = 3.5;
-        /// <summary>Abstand der Prüfpunkte entlang eines Teils.</summary>
+        /// <summary>Spacing of the sample points along a part.</summary>
         public double SampleStep { get; set; } = 1.0;
-        /// <summary>true = Objektposition ist die Bounding-Box-Mitte (Autocenter), false = Modellursprung.</summary>
+        /// <summary>true = object position is the bounding box centre (autocenter), false = model origin.</summary>
         public bool UseBoundingCenter { get; set; } = true;
-        /// <summary>Zusätzlich getestete Startrichtungen ± dieser Gradzahl (0 = genau Linienrichtung).</summary>
+        /// <summary>Additional start headings tested within ± this many degrees (0 = exactly the line direction).</summary>
         public double StartHeadingRange { get; set; } = 0.0;
         public double StartHeadingStep { get; set; } = 0.5;
-        /// <summary>Endstücke umgedreht einbauen.</summary>
+        /// <summary>Place end pieces reversed.</summary>
         public bool FlipEndCaps { get; set; }
-        /// <summary>Endstück am Anfang setzen (nur wenn ein Endstück-Teil gewählt ist).</summary>
+        /// <summary>Place an end piece at the start (only if an end piece is selected).</summary>
         public bool EndCapAtStart { get; set; } = true;
-        /// <summary>Endstück am Ende setzen (nur wenn ein Endstück-Teil gewählt ist).</summary>
+        /// <summary>Place an end piece at the end (only if an end piece is selected).</summary>
         public bool EndCapAtEnd { get; set; } = true;
     }
 
-    /// <summary>Ein platziertes Objekt.</summary>
+    /// <summary>A placed object.</summary>
     public sealed class PlacedPart
     {
         public RoadPart Part;
         public bool Reversed;
-        /// <summary>Weltposition des Referenzpunkts (das, was exportiert wird).</summary>
+        /// <summary>World position of the reference point (this is what gets exported).</summary>
         public Vec2 Position;
-        /// <summary>Objekt-Yaw (Kompassgrad, im Uhrzeigersinn).</summary>
+        /// <summary>Object yaw (compass degrees, clockwise).</summary>
         public double Yaw;
-        /// <summary>Referenzpunkt im Modell (BBox-Mitte oder 0,0).</summary>
+        /// <summary>Reference point in the model (bounding box centre or 0,0).</summary>
         public Vec2 ModelReference;
         public Vec2 Entry;
         public Vec2 Exit;
@@ -52,7 +52,7 @@ namespace DayZRoadBuilder.Core
         public double ExitHeading;
         public int RoadIndex;
 
-        /// <summary>Wandelt einen Modellpunkt in Weltkoordinaten um.</summary>
+        /// <summary>Converts a model point to world coordinates.</summary>
         public Vec2 ToWorld(Vec2 local)
         {
             return Position + Geo.Rotate(local - ModelReference, Yaw);
@@ -72,13 +72,13 @@ namespace DayZRoadBuilder.Core
         public List<PlacedPart> Parts = new List<PlacedPart>();
         public List<string> Warnings = new List<string>();
         public bool ReachedEnd;
-        /// <summary>Größte seitliche Abweichung der Straßenmitte von der Linie.</summary>
+        /// <summary>Largest lateral deviation of the road centreline from the line.</summary>
         public double MaxDeviation;
         public double RmsDeviation;
-        /// <summary>Abstand zwischen Straßenende und Linienende.</summary>
+        /// <summary>Distance between the end of the road and the end of the line.</summary>
         public double EndGap;
         public double RoadLength;
-        /// <summary>Größte Fuge zwischen zwei Teilen (Kontrollwert, sollte ~0 sein).</summary>
+        /// <summary>Largest gap between two parts (sanity check, should be ~0).</summary>
         public double MaxJointGap;
         public TimeSpan Duration;
     }

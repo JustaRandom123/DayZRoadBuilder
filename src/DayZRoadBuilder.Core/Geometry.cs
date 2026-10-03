@@ -4,8 +4,8 @@ using System.Globalization;
 namespace DayZRoadBuilder.Core
 {
     /// <summary>
-    /// 2D-Vektor in Karten-/Modellkoordinaten.
-    /// X = Ost (Modell-X), Z = Nord (Modell-Z). Die Höhe (Y) spielt für den Straßenbau keine Rolle.
+    /// 2D vector in map / model coordinates.
+    /// X = east (model X), Z = north (model Z). Height (Y) is irrelevant for building roads.
     /// </summary>
     public readonly struct Vec2
     {
@@ -38,15 +38,15 @@ namespace DayZRoadBuilder.Core
     }
 
     /// <summary>
-    /// Winkelhilfen. Alle Winkel in Grad als Kompasskurs: 0° = Nord (+Z), 90° = Ost (+X), im Uhrzeigersinn.
-    /// Das entspricht der Richtungs-/Yaw-Konvention von Arma/DayZ-Terrain-Builder.
+    /// Angle helpers. All angles are compass bearings in degrees: 0° = north (+Z), 90° = east (+X), clockwise.
+    /// This matches the direction / yaw convention of Arma / DayZ Terrain Builder.
     /// </summary>
     public static class Geo
     {
         public const double Deg2Rad = Math.PI / 180.0;
         public const double Rad2Deg = 180.0 / Math.PI;
 
-        /// <summary>Dreht einen Vektor um <paramref name="deg"/> Grad im Uhrzeigersinn (Kompasskonvention).</summary>
+        /// <summary>Rotates a vector clockwise by <paramref name="deg"/> degrees (compass convention).</summary>
         public static Vec2 Rotate(Vec2 v, double deg)
         {
             double a = deg * Deg2Rad;
@@ -55,20 +55,20 @@ namespace DayZRoadBuilder.Core
             return new Vec2(v.X * c + v.Z * s, -v.X * s + v.Z * c);
         }
 
-        /// <summary>Kompasskurs eines Richtungsvektors.</summary>
+        /// <summary>Compass bearing of a direction vector.</summary>
         public static double Bearing(Vec2 d)
         {
             return Math.Atan2(d.X, d.Z) * Rad2Deg;
         }
 
-        /// <summary>Einheitsvektor für einen Kompasskurs.</summary>
+        /// <summary>Unit vector for a compass bearing.</summary>
         public static Vec2 Direction(double bearingDeg)
         {
             double a = bearingDeg * Deg2Rad;
             return new Vec2(Math.Sin(a), Math.Cos(a));
         }
 
-        /// <summary>Normalisiert auf (-180, 180].</summary>
+        /// <summary>Normalizes to (-180, 180].</summary>
         public static double WrapDeg(double a)
         {
             a %= 360.0;
@@ -77,7 +77,7 @@ namespace DayZRoadBuilder.Core
             return a;
         }
 
-        /// <summary>Normalisiert auf [0, 360).</summary>
+        /// <summary>Normalizes to [0, 360).</summary>
         public static double Norm360(double a)
         {
             a %= 360.0;
@@ -86,7 +86,7 @@ namespace DayZRoadBuilder.Core
             return a;
         }
 
-        /// <summary>Punkt-in-Polygon-Test (Even-Odd).</summary>
+        /// <summary>Point-in-polygon test (even-odd rule).</summary>
         public static bool PointInPolygon(Vec2[] poly, Vec2 p)
         {
             bool inside = false;

@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -12,44 +11,44 @@ using DayZRoadBuilder.Core;
 
 namespace DayZRoadBuilder.App
 {
-    /// <summary>Hauptfenster. Die Oberfläche wird komplett im Code aufgebaut (kein Designer nötig).</summary>
+    /// <summary>Main window. The UI is built entirely in code (no designer file required).</summary>
     internal sealed class MainForm : Form
     {
-        // Dateien
+        // Files
         private readonly TextBox _txtParts = new TextBox();
         private readonly TextBox _txtShp = new TextBox();
         private readonly Button _btnParts = new Button { Text = "…", Width = 32 };
         private readonly Button _btnShp = new Button { Text = "…", Width = 32 };
 
-        // Straßentyp & Teile
+        // Road type & parts
         private readonly ComboBox _cboFamily = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
         private readonly CheckedListBox _lstParts = new CheckedListBox { CheckOnClick = true, IntegralHeight = false };
         private readonly ComboBox _cboEndCap = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-        private readonly CheckBox _chkCapStart = new CheckBox { Text = "am Anfang", AutoSize = true, Checked = true };
-        private readonly CheckBox _chkCapEnd = new CheckBox { Text = "am Ende", AutoSize = true, Checked = true };
-        private readonly CheckBox _chkFlipCaps = new CheckBox { Text = "Endstücke umdrehen", AutoSize = true };
+        private readonly CheckBox _chkCapStart = new CheckBox { Text = "at start", AutoSize = true, Checked = true };
+        private readonly CheckBox _chkCapEnd = new CheckBox { Text = "at end", AutoSize = true, Checked = true };
+        private readonly CheckBox _chkFlipCaps = new CheckBox { Text = "flip end pieces", AutoSize = true };
 
-        // Bau-Optionen
-        private readonly CheckBox _chkReverse = new CheckBox { Text = "Linienrichtung umkehren", AutoSize = true };
+        // Build options
+        private readonly CheckBox _chkReverse = new CheckBox { Text = "Reverse line direction", AutoSize = true };
         private readonly NumericUpDown _numBeam = Num(1, 200, 12, 0, 1);
         private readonly NumericUpDown _numPiece = Num(0, 100, 1.0m, 2, 0.25m);
         private readonly NumericUpDown _numTurn = Num(0, 10, 0.05m, 3, 0.05m);
         private readonly NumericUpDown _numEndTol = Num(0.1m, 50, 3.5m, 2, 0.5m);
         private readonly NumericUpDown _numStartRange = Num(0, 45, 0, 1, 0.5m);
 
-        // Export-Optionen
+        // Export options
         private readonly ComboBox _cboRef = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-        private readonly CheckBox _chkInvertYaw = new CheckBox { Text = "Yaw umkehren (gegen Uhrzeigersinn)", AutoSize = true };
+        private readonly CheckBox _chkInvertYaw = new CheckBox { Text = "Invert yaw (counter-clockwise)", AutoSize = true };
         private readonly NumericUpDown _numYawOff = Num(-360, 360, 0, 3, 90);
         private readonly NumericUpDown _numOffX = Num(-10000000, 10000000, 0, 3, 1);
         private readonly NumericUpDown _numOffY = Num(-10000000, 10000000, 0, 3, 1);
 
-        private readonly Button _btnBuild = new Button { Text = "Straße bauen", Height = 34, Dock = DockStyle.Fill };
-        private readonly Button _btnExport = new Button { Text = "Export für Terrain Builder (.txt) …", Height = 30, Dock = DockStyle.Fill, Enabled = false };
+        private readonly Button _btnBuild = new Button { Text = "Build road", Height = 34, Dock = DockStyle.Fill };
+        private readonly Button _btnExport = new Button { Text = "Export for Terrain Builder (.txt) …", Height = 30, Dock = DockStyle.Fill, Enabled = false };
         private readonly TextBox _txtLog = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, WordWrap = true, Dock = DockStyle.Fill };
 
         private readonly PreviewControl _preview = new PreviewControl { Dock = DockStyle.Fill };
-        private readonly ToolStripStatusLabel _lblStatus = new ToolStripStatusLabel { Text = "Bereit", Spring = true, TextAlign = ContentAlignment.MiddleLeft };
+        private readonly ToolStripStatusLabel _lblStatus = new ToolStripStatusLabel { Text = "Ready", Spring = true, TextAlign = ContentAlignment.MiddleLeft };
         private readonly ToolStripProgressBar _progress = new ToolStripProgressBar { Minimum = 0, Maximum = 1000, Width = 200 };
 
         private readonly AppSettings _settings = AppSettings.Load();
@@ -62,7 +61,7 @@ namespace DayZRoadBuilder.App
 
         public MainForm()
         {
-            Text = "DayZ Road Builder – Straßen automatisch aus Polylines";
+            Text = "DayZ Road Builder – automatic roads from polylines";
             Width = 1400;
             Height = 900;
             StartPosition = FormStartPosition.CenterScreen;
@@ -109,38 +108,38 @@ namespace DayZRoadBuilder.App
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-            AddHeader(t, "1. Dateien");
-            AddRow(t, "Teile-Ordner", _txtParts, _btnParts);
+            AddHeader(t, "1. Files");
+            AddRow(t, "Road parts folder", _txtParts, _btnParts);
             AddRow(t, "Polyline (.shp)", _txtShp, _btnShp);
 
-            AddHeader(t, "2. Straßentyp und Teile");
-            AddRow(t, "Straßentyp", _cboFamily, null);
+            AddHeader(t, "2. Road type and parts");
+            AddRow(t, "Road type", _cboFamily, null);
             AddFull(t, _lstParts, 230);
-            AddRow(t, "Endstück", _cboEndCap, null);
+            AddRow(t, "End piece", _cboEndCap, null);
             var capFlow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true, Margin = new Padding(0) };
             capFlow.Controls.Add(_chkCapStart);
             capFlow.Controls.Add(_chkCapEnd);
             capFlow.Controls.Add(_chkFlipCaps);
             AddRow(t, "", capFlow, null);
 
-            AddHeader(t, "3. Anpassung");
-            AddRow(t, "Suchbreite", _numBeam, null);
-            AddRow(t, "Strafe pro Teil", _numPiece, null);
-            AddRow(t, "Strafe pro Grad", _numTurn, null);
-            AddRow(t, "Endtoleranz [m]", _numEndTol, null);
-            AddRow(t, "Startwinkel ± [°]", _numStartRange, null);
+            AddHeader(t, "3. Fitting");
+            AddRow(t, "Search width", _numBeam, null);
+            AddRow(t, "Penalty per part", _numPiece, null);
+            AddRow(t, "Penalty per degree", _numTurn, null);
+            AddRow(t, "End tolerance [m]", _numEndTol, null);
+            AddRow(t, "Start angle ± [°]", _numStartRange, null);
             AddRow(t, "", _chkReverse, null);
 
             AddHeader(t, "4. Export (Terrain Builder)");
             AddRow(t, "Position =", _cboRef, null);
             AddRow(t, "", _chkInvertYaw, null);
-            AddRow(t, "Yaw-Versatz [°]", _numYawOff, null);
-            AddRow(t, "Versatz X [m]", _numOffX, null);
-            AddRow(t, "Versatz Y [m]", _numOffY, null);
+            AddRow(t, "Yaw offset [°]", _numYawOff, null);
+            AddRow(t, "Offset X [m]", _numOffX, null);
+            AddRow(t, "Offset Y [m]", _numOffY, null);
 
             AddFull(t, _btnBuild, 40);
             AddFull(t, _btnExport, 36);
-            AddHeader(t, "Protokoll");
+            AddHeader(t, "Log");
             AddFull(t, _txtLog, 220);
 
             scroll.Controls.Add(t);
@@ -154,25 +153,25 @@ namespace DayZRoadBuilder.App
             Controls.Add(split);
             Controls.Add(status);
 
-            _cboRef.Items.Add("Bounding-Box-Mitte (Standard)");
-            _cboRef.Items.Add("Modell-Ursprung [0,0,0]");
+            _cboRef.Items.Add("Bounding box centre (default)");
+            _cboRef.Items.Add("Model origin [0,0,0]");
             _cboRef.SelectedIndex = 0;
 
-            // Panelbreite erst setzen, wenn das Fenster seine Größe hat
+            // set the panel width once the window has its size
             Load += (s, e) =>
             {
                 try { split.SplitterDistance = 430; } catch (InvalidOperationException) { }
             };
 
             var tip = new ToolTip { AutoPopDelay = 20000 };
-            tip.SetToolTip(_numBeam, "Wie viele Varianten pro 0,5 m weiterverfolgt werden. Höher = genauer, aber langsamer. 8–30 ist sinnvoll.");
-            tip.SetToolTip(_numPiece, "Kosten pro Teil. Höher = weniger, längere Teile (dafür etwas mehr Abweichung).");
-            tip.SetToolTip(_numTurn, "Kosten pro Grad Kurve. Höher = mehr Geraden, weniger Schlängeln.");
-            tip.SetToolTip(_numEndTol, "Wie weit das letzte Teil vom Linienende entfernt enden darf.");
-            tip.SetToolTip(_numStartRange, "Erlaubt am Linienanfang eine etwas andere Startrichtung (± Grad), falls die Linie dort einen Knick hat.");
-            tip.SetToolTip(_cboRef, "Welcher Modellpunkt als Objektposition exportiert wird. DayZ/TB benutzen bei Straßenteilen die Bounding-Box-Mitte (autocenter).");
-            tip.SetToolTip(_chkInvertYaw, "Nur ändern, wenn die Teile nach dem Import gespiegelt/verdreht erscheinen.");
-            tip.SetToolTip(_numOffX, "Wird auf alle X-Koordinaten addiert (z.B. 200000, falls die Linie ohne TB-Versatz exportiert wurde).");
+            tip.SetToolTip(_numBeam, "How many candidates are kept per 0.5 m of the line. Higher = more accurate but slower. 8–30 is sensible.");
+            tip.SetToolTip(_numPiece, "Cost per part. Higher = fewer, longer parts (slightly more deviation).");
+            tip.SetToolTip(_numTurn, "Cost per degree of curve. Higher = more straights, less wiggling.");
+            tip.SetToolTip(_numEndTol, "How far from the end of the line the last part may stop.");
+            tip.SetToolTip(_numStartRange, "Allows a slightly different start direction (± degrees) if the line has a kink at its start.");
+            tip.SetToolTip(_cboRef, "Which model point is exported as the object position. DayZ / Terrain Builder use the bounding box centre for road parts (autocenter).");
+            tip.SetToolTip(_chkInvertYaw, "Only change this if the parts appear mirrored / rotated after importing.");
+            tip.SetToolTip(_numOffX, "Added to all X coordinates (e.g. 200000 if the line was exported without the Terrain Builder easting offset).");
         }
 
         private void AddHeader(TableLayoutPanel t, string text)
@@ -218,8 +217,8 @@ namespace DayZRoadBuilder.App
         {
             _btnParts.Click += (s, e) => BrowseParts();
             _btnShp.Click += (s, e) => BrowseShp();
-            _txtParts.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) LoadLibrary(_txtParts.Text); };
-            _txtShp.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) LoadShapes(_txtShp.Text); };
+            _txtParts.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; LoadLibrary(_txtParts.Text); } };
+            _txtShp.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; LoadShapes(_txtShp.Text); } };
             _cboFamily.SelectedIndexChanged += (s, e) => FillPartList();
             _lstParts.ItemCheck += LstParts_ItemCheck;
             _btnBuild.Click += BtnBuild_Click;
@@ -228,7 +227,7 @@ namespace DayZRoadBuilder.App
             FormClosing += (s, e) => SaveUiToSettings();
         }
 
-        // ------------------------------------------------------------------ Einstellungen
+        // ------------------------------------------------------------------ Settings
 
         private void LoadSettingsToUi()
         {
@@ -248,6 +247,8 @@ namespace DayZRoadBuilder.App
             _cboRef.SelectedIndex = _settings.GetBool("modelOrigin", false) ? 1 : 0;
 
             string parts = _settings.GetString("partsFolder", "");
+            if (parts.Length == 0 || !Directory.Exists(parts))
+                parts = FindBundledPartsFolder() ?? parts;
             string shp = _settings.GetString("shp", "");
             _txtParts.Text = parts;
             _txtShp.Text = shp;
@@ -256,6 +257,26 @@ namespace DayZRoadBuilder.App
                 if (parts.Length > 0 && Directory.Exists(parts)) LoadLibrary(parts);
                 if (shp.Length > 0 && File.Exists(shp)) LoadShapes(shp);
             };
+        }
+
+        /// <summary>Looks for the "RoadParts" folder of the repository next to the EXE or in one of its parent folders.</summary>
+        private static string FindBundledPartsFolder()
+        {
+            try
+            {
+                var dir = new DirectoryInfo(AppContext.BaseDirectory);
+                for (int i = 0; i < 8 && dir != null; i++)
+                {
+                    string candidate = Path.Combine(dir.FullName, "RoadParts");
+                    if (Directory.Exists(candidate)) return candidate;
+                    dir = dir.Parent;
+                }
+            }
+            catch
+            {
+                // not important
+            }
+            return null;
         }
 
         private static decimal Clamp(NumericUpDown n, decimal v)
@@ -287,13 +308,13 @@ namespace DayZRoadBuilder.App
             _settings.Save();
         }
 
-        // ------------------------------------------------------------------ Laden
+        // ------------------------------------------------------------------ Loading
 
         private void BrowseParts()
         {
             using (var dlg = new FolderBrowserDialog())
             {
-                dlg.Description = "Ordner mit den Straßen-P3Ds (unbinarisiert, z.B. P:\\DZ\\structures\\roads\\parts)";
+                dlg.Description = "Folder containing the road P3Ds (unbinarized, e.g. RoadParts or P:\\DZ\\structures\\roads\\parts)";
                 if (Directory.Exists(_txtParts.Text)) dlg.SelectedPath = _txtParts.Text;
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
@@ -307,8 +328,8 @@ namespace DayZRoadBuilder.App
         {
             using (var dlg = new OpenFileDialog())
             {
-                dlg.Filter = "Shapefile (*.shp)|*.shp|Alle Dateien (*.*)|*.*";
-                dlg.Title = "Polyline-Shapefile wählen";
+                dlg.Filter = "Shapefile (*.shp)|*.shp|All files (*.*)|*.*";
+                dlg.Title = "Select polyline shapefile";
                 if (File.Exists(_txtShp.Text)) dlg.InitialDirectory = Path.GetDirectoryName(_txtShp.Text);
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
@@ -324,14 +345,14 @@ namespace DayZRoadBuilder.App
             {
                 Cursor = Cursors.WaitCursor;
                 _library = RoadPartLibrary.Load(folder);
-                Log(string.Format("{0} Straßenteile geladen aus {1}", _library.Parts.Count, folder));
-                foreach (string w in _library.Warnings) Log("  Hinweis: " + w);
+                Log(string.Format("{0} road parts loaded from {1}", _library.Parts.Count, folder));
+                foreach (string w in _library.Warnings) Log("  Note: " + w);
 
                 _cboFamily.Items.Clear();
                 foreach (string f in _library.GetFamilies()) _cboFamily.Items.Add(f);
                 if (_cboFamily.Items.Count == 0)
                 {
-                    Log("Keine verwendbaren Straßenteile gefunden.");
+                    Log("No usable road parts found.");
                     FillPartList();
                     return;
                 }
@@ -341,7 +362,7 @@ namespace DayZRoadBuilder.App
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Fehler beim Laden der Teile", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(this, ex.Message, "Error loading road parts", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -359,8 +380,8 @@ namespace DayZRoadBuilder.App
                 foreach (ShapeRecord r in _shapes)
                     foreach (List<Vec2> p in r.Parts)
                         for (int i = 1; i < p.Count; i++) len += Vec2.Distance(p[i - 1], p[i]);
-                Log(string.Format(CultureInfo.InvariantCulture, "{0}: {1} Linie(n), {2:F1} m gesamt", Path.GetFileName(file), lines, len));
-                if (lines == 0) Log("  Achtung: keine Linien gefunden (nur PolyLine/Polygon werden unterstützt).");
+                Log(string.Format(CultureInfo.InvariantCulture, "{0}: {1} line(s), {2:F1} m in total", Path.GetFileName(file), lines, len));
+                if (lines == 0) Log("  Warning: no lines found (only PolyLine / Polygon shapes are supported).");
                 _results = null;
                 _btnExport.Enabled = false;
                 _preview.SetData(GetLines(), null, true);
@@ -368,7 +389,7 @@ namespace DayZRoadBuilder.App
             catch (Exception ex)
             {
                 _shapes = null;
-                MessageBox.Show(this, ex.Message, "Fehler beim Lesen der Shapefile", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(this, ex.Message, "Error reading shapefile", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -389,7 +410,7 @@ namespace DayZRoadBuilder.App
             {
                 _lstParts.Items.Clear();
                 _cboEndCap.Items.Clear();
-                _cboEndCap.Items.Add("(kein Endstück)");
+                _cboEndCap.Items.Add("(no end piece)");
                 _cboEndCap.SelectedIndex = 0;
                 if (_library == null || _cboFamily.SelectedItem == null) return;
 
@@ -424,7 +445,7 @@ namespace DayZRoadBuilder.App
             if (p != null) _settings.SetPartChecked(p.Name, e.NewValue == CheckState.Checked);
         }
 
-        // ------------------------------------------------------------------ Bauen
+        // ------------------------------------------------------------------ Building
 
         private BuildSettings ReadBuildSettings()
         {
@@ -462,18 +483,18 @@ namespace DayZRoadBuilder.App
             }
             if (_library == null)
             {
-                MessageBox.Show(this, "Bitte zuerst den Ordner mit den Straßenteilen laden.", Text);
+                MessageBox.Show(this, "Please load the road parts folder first.", Text);
                 return;
             }
             if (_shapes == null || _shapes.Count == 0)
             {
-                MessageBox.Show(this, "Bitte zuerst eine Polyline-Shapefile laden.", Text);
+                MessageBox.Show(this, "Please load a polyline shapefile first.", Text);
                 return;
             }
             List<RoadPart> parts = _lstParts.CheckedItems.OfType<RoadPart>().ToList();
             if (!parts.Any(p => p.Kind == PartKind.Straight || p.Kind == PartKind.Curve || p.Kind == PartKind.Crosswalk))
             {
-                MessageBox.Show(this, "Bitte mindestens ein Straßenteil anhaken.", Text);
+                MessageBox.Show(this, "Please tick at least one road part.", Text);
                 return;
             }
 
@@ -489,22 +510,22 @@ namespace DayZRoadBuilder.App
                     try
                     {
                         var path = new RoadPath(r.Parts[i]);
-                        path.Name = r.Parts.Count > 1 ? string.Format("Datensatz {0}.{1}", r.RecordNumber, i + 1) : "Datensatz " + r.RecordNumber;
+                        path.Name = r.Parts.Count > 1 ? string.Format("Record {0}.{1}", r.RecordNumber, i + 1) : "Record " + r.RecordNumber;
                         paths.Add(reverse ? path.Reversed() : path);
                     }
                     catch (ArgumentException ex)
                     {
-                        Log("Datensatz " + r.RecordNumber + " übersprungen: " + ex.Message);
+                        Log("Record " + r.RecordNumber + " skipped: " + ex.Message);
                     }
                 }
             }
 
             _cts = new CancellationTokenSource();
             CancellationToken token = _cts.Token;
-            _btnBuild.Text = "Abbrechen";
+            _btnBuild.Text = "Cancel";
             _btnExport.Enabled = false;
             _progress.Value = 0;
-            _lblStatus.Text = "Baue Straße(n) …";
+            _lblStatus.Text = "Building road(s) …";
 
             var overall = new Progress<double>(v => _progress.Value = Math.Max(0, Math.Min(1000, (int)(v * 1000))));
             IProgress<double> rep = overall;
@@ -528,23 +549,23 @@ namespace DayZRoadBuilder.App
                 ReportResults(results);
                 _preview.SetData(paths.Select(p => p.Points), results.SelectMany(r => r.Parts), false);
                 _btnExport.Enabled = results.Any(r => r.Parts.Count > 0);
-                _lblStatus.Text = "Fertig: " + results.Sum(r => r.Parts.Count) + " Teile";
+                _lblStatus.Text = "Done: " + results.Sum(r => r.Parts.Count) + " parts";
             }
             catch (OperationCanceledException)
             {
-                Log("Abgebrochen.");
-                _lblStatus.Text = "Abgebrochen";
+                Log("Cancelled.");
+                _lblStatus.Text = "Cancelled";
             }
             catch (Exception ex)
             {
-                Log("Fehler: " + ex.Message);
-                MessageBox.Show(this, ex.ToString(), "Fehler beim Bauen", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Log("Error: " + ex.Message);
+                MessageBox.Show(this, ex.ToString(), "Error while building", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
                 _cts.Dispose();
                 _cts = null;
-                _btnBuild.Text = "Straße bauen";
+                _btnBuild.Text = "Build road";
                 _progress.Value = 0;
             }
         }
@@ -554,15 +575,15 @@ namespace DayZRoadBuilder.App
             foreach (BuildResult r in results)
             {
                 Log(string.Format(CultureInfo.InvariantCulture,
-                    "{0}: {1} Teile | Linie {2:F1} m, Straße {3:F1} m | max. Abweichung {4:F2} m, Ø {5:F2} m | Endabstand {6:F2} m | Fugen ≤ {7:F3} m | {8:F1} s",
+                    "{0}: {1} parts | line {2:F1} m, road {3:F1} m | max. deviation {4:F2} m, avg {5:F2} m | end gap {6:F2} m | joints ≤ {7:F3} m | {8:F1} s",
                     r.Path.Name, r.Parts.Count, r.Path.Length, r.RoadLength, r.MaxDeviation, r.RmsDeviation, r.EndGap, r.MaxJointGap, r.Duration.TotalSeconds));
-                foreach (string w in r.Warnings) Log("  Warnung: " + w);
+                foreach (string w in r.Warnings) Log("  Warning: " + w);
             }
             var usage = results.SelectMany(r => r.Parts)
                 .GroupBy(p => p.Part.Name)
                 .OrderByDescending(g => g.Count())
                 .Select(g => g.Key + " ×" + g.Count());
-            Log("  Verwendet: " + string.Join(", ", usage));
+            Log("  Used: " + string.Join(", ", usage));
         }
 
         // ------------------------------------------------------------------ Export
@@ -572,8 +593,8 @@ namespace DayZRoadBuilder.App
             if (_results == null) return;
             using (var dlg = new SaveFileDialog())
             {
-                dlg.Filter = "Terrain-Builder-Objektliste (*.txt)|*.txt";
-                dlg.Title = "Objektliste speichern";
+                dlg.Filter = "Terrain Builder object list (*.txt)|*.txt";
+                dlg.Title = "Save object list";
                 string shp = _txtShp.Text;
                 dlg.FileName = (File.Exists(shp) ? Path.GetFileNameWithoutExtension(shp) : "road") + "_objects.txt";
                 if (File.Exists(shp)) dlg.InitialDirectory = Path.GetDirectoryName(shp);
@@ -583,12 +604,12 @@ namespace DayZRoadBuilder.App
                 {
                     List<PlacedPart> all = _results.SelectMany(r => r.Parts).ToList();
                     TerrainBuilderExporter.Write(dlg.FileName, all, ReadExportSettings());
-                    Log(all.Count + " Objekte exportiert: " + dlg.FileName);
-                    _lblStatus.Text = "Exportiert: " + dlg.FileName;
+                    Log(all.Count + " objects exported: " + dlg.FileName);
+                    _lblStatus.Text = "Exported: " + dlg.FileName;
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(this, ex.Message, "Fehler beim Export", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(this, ex.Message, "Export error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -598,7 +619,7 @@ namespace DayZRoadBuilder.App
             _txtLog.AppendText(line + Environment.NewLine);
         }
 
-        /// <summary>IProgress, das direkt (ohne SynchronizationContext) einen Delegaten aufruft.</summary>
+        /// <summary>IProgress that calls a delegate directly (without a SynchronizationContext).</summary>
         private sealed class DelegateProgress : IProgress<double>
         {
             private readonly Action<double> _a;

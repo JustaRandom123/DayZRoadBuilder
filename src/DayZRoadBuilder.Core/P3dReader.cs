@@ -12,25 +12,25 @@ namespace DayZRoadBuilder.Core
         public float Z;
     }
 
-    /// <summary>Ein LOD aus einer unbinarisierten (MLOD) P3D-Datei.</summary>
+    /// <summary>One LOD of an unbinarized (MLOD) P3D file.</summary>
     public sealed class P3dLod
     {
         public float Resolution;
         public List<P3dPoint> Points = new List<P3dPoint>();
 
-        /// <summary>Benannte Selektionen (z.B. LB, PB, LE, PE) -> Indizes der enthaltenen Punkte.</summary>
+        /// <summary>Named selections (e.g. LB, PB, LE, PE) -> indices of the points they contain.</summary>
         public Dictionary<string, List<int>> Selections = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>Named Properties (#Property#), z.B. class=road.</summary>
+        /// <summary>Named properties (#Property#), e.g. class=road.</summary>
         public Dictionary<string, string> Properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public bool IsMemoryLod { get { return Math.Abs(Resolution - 1e15f) < 1e9f; } }
     }
 
     /// <summary>
-    /// Minimaler Leser für das MLOD-Format (P3DM, Version 0x1C), wie es Object Builder / DayZ Tools auf P:\ ablegen.
-    /// Gelesen werden nur Punkte, Selektionen und Properties – genug, um die Straßen-Memorypunkte zu bekommen.
-    /// Binarisierte Modelle (ODOL) werden nicht unterstützt.
+    /// Minimal reader for the MLOD format (P3DM, version 0x1C) as stored by Object Builder / DayZ Tools on P:\.
+    /// Only points, selections and properties are read – enough to get the road memory points.
+    /// Binarized models (ODOL) are not supported.
     /// </summary>
     public static class P3dReader
     {
@@ -47,21 +47,21 @@ namespace DayZRoadBuilder.Core
             var r = new ByteReader(data);
             string sig = r.ReadFixedString(4);
             if (sig == "ODOL")
-                throw new NotSupportedException("Binarisiertes Modell (ODOL) – bitte die unbinarisierte MLOD-Version von P:\\ verwenden: " + nameForErrors);
+                throw new NotSupportedException("Binarized model (ODOL) – please use the unbinarized MLOD version from P:\\: " + nameForErrors);
             if (sig != "MLOD")
-                throw new InvalidDataException("Keine P3D-Datei (Signatur '" + sig + "'): " + nameForErrors);
+                throw new InvalidDataException("Not a P3D file (signature '" + sig + "'): " + nameForErrors);
 
             r.ReadInt32(); // Version
             int lodCount = r.ReadInt32();
             if (lodCount < 0 || lodCount > 10000)
-                throw new InvalidDataException("Ungültige LOD-Anzahl in " + nameForErrors);
+                throw new InvalidDataException("Invalid LOD count in " + nameForErrors);
 
             var lods = new List<P3dLod>(lodCount);
             for (int l = 0; l < lodCount; l++)
             {
                 string lodSig = r.ReadFixedString(4);
                 if (lodSig != "P3DM")
-                    throw new InvalidDataException("Nicht unterstütztes LOD-Format '" + lodSig + "' in " + nameForErrors);
+                    throw new InvalidDataException("Unsupported LOD format '" + lodSig + "' in " + nameForErrors);
 
                 r.ReadInt32(); // header size (0x1C)
                 r.ReadInt32(); // version (0x100)
@@ -92,7 +92,7 @@ namespace DayZRoadBuilder.Core
 
                 string tagg = r.ReadFixedString(4);
                 if (tagg != "TAGG")
-                    throw new InvalidDataException("TAGG-Block fehlt in " + nameForErrors);
+                    throw new InvalidDataException("TAGG block missing in " + nameForErrors);
 
                 while (true)
                 {
@@ -114,7 +114,7 @@ namespace DayZRoadBuilder.Core
                     }
                     else if (!name.StartsWith("#", StringComparison.Ordinal))
                     {
-                        // Selektion: ein Gewichts-Byte pro Punkt (danach eines pro Fläche). 0 = nicht selektiert.
+                        // Selection: one weight byte per point (followed by one per face). 0 = not selected.
                         var idx = new List<int>();
                         int n = Math.Min(nPoints, len);
                         for (int i = 0; i < n; i++)
@@ -152,7 +152,7 @@ namespace DayZRoadBuilder.Core
             private void Need(int n)
             {
                 if (_p + n > _d.Length || n < 0)
-                    throw new EndOfStreamException("Unerwartetes Dateiende in P3D-Datei.");
+                    throw new EndOfStreamException("Unexpected end of P3D file.");
             }
 
             public void Skip(int n) { Need(n); _p += n; }
@@ -193,7 +193,7 @@ namespace DayZRoadBuilder.Core
                     _p++;
                 }
                 string s = Latin1.GetString(_d, start, _p - start);
-                _p++; // Nullterminator
+                _p++; // null terminator
                 return s;
             }
         }

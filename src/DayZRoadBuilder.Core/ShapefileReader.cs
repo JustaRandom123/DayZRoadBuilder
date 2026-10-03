@@ -8,13 +8,13 @@ namespace DayZRoadBuilder.Core
     {
         public int RecordNumber;
         public int ShapeType;
-        /// <summary>Einzelne Linienzüge (Parts) des Datensatzes.</summary>
+        /// <summary>Individual line strings (parts) of the record.</summary>
         public List<List<Vec2>> Parts = new List<List<Vec2>>();
     }
 
     /// <summary>
-    /// Liest Linien (PolyLine, PolyLineZ, PolyLineM) und Polygone aus einer ESRI-Shapefile (.shp).
-    /// Koordinaten werden unverändert übernommen (bei Terrain-Builder-Exporten inkl. 200000-Offset).
+    /// Reads lines (PolyLine, PolyLineZ, PolyLineM) and polygons from an ESRI shapefile (.shp).
+    /// Coordinates are taken as they are (Terrain Builder exports already include the 200000 easting offset).
     /// </summary>
     public static class ShapefileReader
     {
@@ -22,7 +22,7 @@ namespace DayZRoadBuilder.Core
         {
             byte[] b = File.ReadAllBytes(shpPath);
             if (b.Length < 100 || ReadInt32BE(b, 0) != 9994)
-                throw new InvalidDataException("Keine gültige Shapefile: " + shpPath);
+                throw new InvalidDataException("Not a valid shapefile: " + shpPath);
 
             var result = new List<ShapeRecord>();
             int o = 100;

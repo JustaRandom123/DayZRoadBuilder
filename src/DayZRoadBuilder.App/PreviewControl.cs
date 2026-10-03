@@ -9,8 +9,8 @@ using DayZRoadBuilder.Core;
 namespace DayZRoadBuilder.App
 {
     /// <summary>
-    /// Draufsicht: Soll-Linien (rot) und gesetzte Straßenteile.
-    /// Mausrad = Zoom, linke/mittlere Maustaste ziehen = verschieben, Doppelklick = alles einpassen.
+    /// Top-down view: target lines (red) and placed road parts.
+    /// Mouse wheel = zoom, drag with left/middle button = pan, double-click = fit all.
     /// </summary>
     internal sealed class PreviewControl : Control
     {
@@ -18,14 +18,14 @@ namespace DayZRoadBuilder.App
         private readonly List<PlacedPart> _parts = new List<PlacedPart>();
         private readonly List<Vec2[]> _outlines = new List<Vec2[]>();
 
-        private double _cx, _cz;      // Weltpunkt in Bildmitte
-        private double _scale = 1.0;  // Pixel pro Meter
+        private double _cx, _cz;      // world point at the view centre
+        private double _scale = 1.0;  // pixels per metre
         private bool _dragging;
         private Point _dragStart;
         private double _dragCx, _dragCz;
         private int _hover = -1;
 
-        /// <summary>Wird bei Mausbewegung mit einem Infotext (Koordinaten / Teil unter dem Mauszeiger) ausgelöst.</summary>
+        /// <summary>Raised on mouse move with an info text (coordinates / part under the cursor).</summary>
         public event EventHandler<string> HoverInfo;
 
         public bool ShowLabels { get; set; }
@@ -105,7 +105,7 @@ namespace DayZRoadBuilder.App
             if (_lines.Count == 0 && _parts.Count == 0)
             {
                 using (var b = new SolidBrush(Color.Gray))
-                    g.DrawString("Teile-Ordner und SHP-Datei laden, dann \"Straße bauen\".", Font, b, 10, 10);
+                    g.DrawString("Load the road parts folder and a SHP file, then click \"Build road\".", Font, b, 10, 10);
                 return;
             }
 
@@ -250,7 +250,7 @@ namespace DayZRoadBuilder.App
             {
                 PlacedPart p = _parts[hit];
                 info += string.Format(CultureInfo.InvariantCulture, "   |   #{0} {1}{2}  –  Pos {3:F3} / {4:F3}, Yaw {5:F3}°",
-                    hit + 1, p.Part.Name, p.Reversed ? " (gedreht)" : "", p.Position.X, p.Position.Z, p.Yaw);
+                    hit + 1, p.Part.Name, p.Reversed ? " (reversed)" : "", p.Position.X, p.Position.Z, p.Yaw);
             }
             EventHandler<string> h = HoverInfo;
             if (h != null) h(this, info);

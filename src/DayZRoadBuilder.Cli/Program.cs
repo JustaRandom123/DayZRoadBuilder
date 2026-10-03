@@ -9,8 +9,8 @@ using DayZRoadBuilder.Core;
 namespace DayZRoadBuilder.Cli
 {
     /// <summary>
-    /// Kommandozeilen-Variante, z.B. für Batch-Verarbeitung:
-    /// DayZRoadBuilder.Cli --parts "C:\...\Road Parts" --shp road.shp --family asf1 --out road.txt [Optionen]
+    /// Command line version, e.g. for batch processing:
+    /// DayZRoadBuilder.Cli --parts "C:\...\RoadParts" --shp road.shp --family asf1 --out road.txt [options]
     /// </summary>
     public static class Program
     {
@@ -22,7 +22,7 @@ namespace DayZRoadBuilder.Cli
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("Fehler: " + ex.Message);
+                Console.Error.WriteLine("Error: " + ex.Message);
                 return 1;
             }
         }
@@ -30,23 +30,23 @@ namespace DayZRoadBuilder.Cli
         private static void Usage()
         {
             Console.WriteLine("DayZ Road Builder (CLI)");
-            Console.WriteLine("  --parts <ordner>      Ordner mit den Straßen-P3Ds (rekursiv)");
-            Console.WriteLine("  --shp <datei.shp>     Polyline-Shapefile");
-            Console.WriteLine("  --family <typ>        Straßentyp, z.B. asf1, city, mud, asf1enoch ...");
-            Console.WriteLine("  --out <datei.txt>     Terrain-Builder-Objektliste");
-            Console.WriteLine("  --exclude <a,b,...>   Teile ausschließen (Namen)");
-            Console.WriteLine("  --endcap <name>       Endstück-Teil an Anfang und Ende");
-            Console.WriteLine("  --flip-endcaps        Endstücke umdrehen");
-            Console.WriteLine("  --reverse             Linienrichtung umkehren");
-            Console.WriteLine("  --beam <n>            Suchbreite (Standard 12)");
-            Console.WriteLine("  --piece-penalty <x>   Strafe pro Teil (Standard 1.0)");
-            Console.WriteLine("  --turn-penalty <x>    Strafe pro Grad Kurve (Standard 0.05)");
-            Console.WriteLine("  --end-tol <m>         Toleranz am Linienende (Standard 3.5)");
-            Console.WriteLine("  --model-origin        Position = Modellursprung statt BBox-Mitte");
-            Console.WriteLine("  --invert-yaw          Yaw-Vorzeichen umkehren");
-            Console.WriteLine("  --yaw-offset <deg>    Yaw-Versatz");
-            Console.WriteLine("  --offset-x <m> / --offset-y <m>   Koordinatenversatz");
-            Console.WriteLine("  --list                Nur gefundene Straßentypen/Teile auflisten");
+            Console.WriteLine("  --parts <folder>      folder containing the road P3Ds (searched recursively)");
+            Console.WriteLine("  --shp <file.shp>      polyline shapefile");
+            Console.WriteLine("  --family <type>       road type, e.g. asf1, city, mud, asf1enoch ...");
+            Console.WriteLine("  --out <file.txt>      Terrain Builder object list to write");
+            Console.WriteLine("  --exclude <a,b,...>   exclude parts (by name)");
+            Console.WriteLine("  --endcap <name>       end piece placed at start and end");
+            Console.WriteLine("  --flip-endcaps        place end pieces reversed");
+            Console.WriteLine("  --reverse             reverse the line direction");
+            Console.WriteLine("  --beam <n>            search width (default 12)");
+            Console.WriteLine("  --piece-penalty <x>   penalty per part (default 1.0)");
+            Console.WriteLine("  --turn-penalty <x>    penalty per degree of curve (default 0.05)");
+            Console.WriteLine("  --end-tol <m>         tolerance at the end of the line (default 3.5)");
+            Console.WriteLine("  --model-origin        position = model origin instead of bounding box centre");
+            Console.WriteLine("  --invert-yaw          invert the yaw sign");
+            Console.WriteLine("  --yaw-offset <deg>    yaw offset");
+            Console.WriteLine("  --offset-x <m> / --offset-y <m>   coordinate offset");
+            Console.WriteLine("  --list                only list the road types / parts found");
         }
 
         private static int Run(string[] args)
@@ -75,7 +75,7 @@ namespace DayZRoadBuilder.Cli
             }
 
             RoadPartLibrary lib = RoadPartLibrary.Load(opt["--parts"]);
-            foreach (string w in lib.Warnings) Console.WriteLine("Hinweis: " + w);
+            foreach (string w in lib.Warnings) Console.WriteLine("Note: " + w);
 
             if (flags.Contains("--list"))
             {
@@ -103,14 +103,14 @@ namespace DayZRoadBuilder.Cli
             List<RoadPart> parts = lib.GetFamily(family)
                 .Where(p => (p.Kind == PartKind.Straight || p.Kind == PartKind.Curve) && !exclude.Contains(p.Name))
                 .ToList();
-            if (parts.Count == 0) throw new InvalidOperationException("Keine Teile für Straßentyp '" + family + "' gefunden.");
+            if (parts.Count == 0) throw new InvalidOperationException("No parts found for road type '" + family + "'.");
 
             RoadPart endCap = null;
             string capName;
             if (opt.TryGetValue("--endcap", out capName))
             {
                 endCap = lib.Find(capName);
-                if (endCap == null) throw new InvalidOperationException("Endstück nicht gefunden: " + capName);
+                if (endCap == null) throw new InvalidOperationException("End piece not found: " + capName);
             }
 
             var bs = new BuildSettings
@@ -137,21 +137,21 @@ namespace DayZRoadBuilder.Cli
             {
                 foreach (List<Vec2> line in rec.Parts)
                 {
-                    var path = new RoadPath(line) { Name = "Datensatz " + rec.RecordNumber };
+                    var path = new RoadPath(line) { Name = "Record " + rec.RecordNumber };
                     if (flags.Contains("--reverse")) path = path.Reversed();
                     BuildResult r = RoadBuilder.Build(path, parts, endCap, bs, null, CancellationToken.None);
                     foreach (PlacedPart p in r.Parts) p.RoadIndex = roadNo;
                     all.AddRange(r.Parts);
                     roadNo++;
                     Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                        "{0}: Linie {1:F1} m -> {2} Teile, Straße {3:F1} m, max. Abw. {4:F2} m, RMS {5:F2} m, Endabstand {6:F2} m, max. Fuge {7:F4} m, {8:F0} ms",
+                        "{0}: line {1:F1} m -> {2} parts, road {3:F1} m, max. deviation {4:F2} m, RMS {5:F2} m, end gap {6:F2} m, max. joint gap {7:F4} m, {8:F0} ms",
                         path.Name, path.Length, r.Parts.Count, r.RoadLength, r.MaxDeviation, r.RmsDeviation, r.EndGap, r.MaxJointGap, r.Duration.TotalMilliseconds));
-                    foreach (string w in r.Warnings) Console.WriteLine("  Warnung: " + w);
+                    foreach (string w in r.Warnings) Console.WriteLine("  Warning: " + w);
                 }
             }
 
             TerrainBuilderExporter.Write(opt["--out"], all, es);
-            Console.WriteLine(all.Count + " Objekte geschrieben: " + Path.GetFullPath(opt["--out"]));
+            Console.WriteLine(all.Count + " objects written: " + Path.GetFullPath(opt["--out"]));
             return 0;
         }
 

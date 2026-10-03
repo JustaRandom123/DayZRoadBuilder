@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>DayZRoadBuilder.App</RootNamespace>
     <AssemblyName>DayZRoadBuilder</AssemblyName>
-    <!-- Läuft auch, wenn nur eine neuere .NET-Version (9, 10, ...) installiert ist -->
+    <!-- Also runs if only a newer .NET runtime (9, 10, ...) is installed -->
     <RollForward>Major</RollForward>
   </PropertyGroup>
 
@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Kein Formular-Designer: die Oberfläche wird im Code aufgebaut -->
+    <!-- No form designer: the UI is built in code -->
     <Compile Update="MainForm.cs" SubType="Code" />
     <Compile Update="PreviewControl.cs" SubType="Code" />
   </ItemGroup>

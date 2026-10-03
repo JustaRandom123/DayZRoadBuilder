@@ -8,20 +8,19 @@ namespace DayZRoadBuilder.Core
 {
     public sealed class ExportSettings
     {
-        /// <summary>Yaw-Vorzeichen umkehren (falls die Teile im Terrain Builder gespiegelt/verdreht erscheinen).</summary>
+        /// <summary>Invert the yaw sign (if parts appear mirrored / rotated in Terrain Builder).</summary>
         public bool InvertYaw { get; set; }
-        /// <summary>Wird zu jedem Yaw addiert.</summary>
+        /// <summary>Added to every yaw.</summary>
         public double YawOffset { get; set; }
-        /// <summary>Wird zu jeder X-Koordinate addiert (z.B. 200000, falls die Linie ohne TB-Offset vorliegt).</summary>
+        /// <summary>Added to every X coordinate (e.g. 200000 if the line has no TB easting offset).</summary>
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
-        /// <summary>Relative Höhe über Terrain.</summary>
+        /// <summary>Height relative to the terrain.</summary>
         public double RelativeZ { get; set; }
     }
 
     /// <summary>
-    /// Schreibt die Objektliste im Import-Format des Terrain Builders
-    /// (File &gt; Import &gt; Objects... bzw. Rechtsklick auf Layer &gt; Import objects):
+    /// Writes the object list in Terrain Builder's import format (File &gt; Import &gt; Objects...):
     /// "name";X;Y;Yaw;Pitch;Roll;Scale;Z;
     /// </summary>
     public static class TerrainBuilderExporter

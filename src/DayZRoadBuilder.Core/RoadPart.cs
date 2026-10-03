@@ -18,9 +18,9 @@ namespace DayZRoadBuilder.Core
     }
 
     /// <summary>
-    /// Ein Straßenteil (P3D), beschrieben durch seine vier Memorypunkte:
-    /// LB/PB = linker/rechter Punkt am Anfang, LE/PE = linker/rechter Punkt am Ende.
-    /// Alle Koordinaten sind Modellkoordinaten (X rechts, Z vorwärts).
+    /// A road part (P3D), described by its four memory points:
+    /// LB/PB = left/right point at the beginning, LE/PE = left/right point at the end.
+    /// All coordinates are model coordinates (X = right, Z = forward).
     /// </summary>
     public sealed class RoadPart
     {
@@ -38,22 +38,22 @@ namespace DayZRoadBuilder.Core
         public Vec2 LE { get; private set; }
         public Vec2 PE { get; private set; }
 
-        /// <summary>Mitte der Anfangskante (Mitte zwischen LB und PB).</summary>
+        /// <summary>Centre of the start edge (midpoint of LB and PB).</summary>
         public Vec2 StartCenter { get; private set; }
-        /// <summary>Mitte der Endkante (Mitte zwischen LE und PE).</summary>
+        /// <summary>Centre of the end edge (midpoint of LE and PE).</summary>
         public Vec2 EndCenter { get; private set; }
-        /// <summary>Fahrtrichtung an der Anfangskante (Kompasskurs im Modell, 0 = +Z).</summary>
+        /// <summary>Driving direction at the start edge (compass bearing in the model, 0 = +Z).</summary>
         public double StartHeading { get; private set; }
-        /// <summary>Fahrtrichtung an der Endkante.</summary>
+        /// <summary>Driving direction at the end edge.</summary>
         public double EndHeading { get; private set; }
-        /// <summary>Richtungsänderung in Grad (+ = Rechtskurve, - = Linkskurve).</summary>
+        /// <summary>Heading change in degrees (+ = right turn, - = left turn).</summary>
         public double TurnAngle { get; private set; }
-        /// <summary>Länge der Mittellinie (Bogenlänge bei Kurven).</summary>
+        /// <summary>Centreline length (arc length for curves).</summary>
         public double Length { get; private set; }
-        /// <summary>Radius der Mittellinie (unendlich bei Geraden).</summary>
+        /// <summary>Centreline radius (infinite for straights).</summary>
         public double Radius { get; private set; }
         public double Width { get; private set; }
-        /// <summary>Mitte der Bounding Box über alle LODs (Autocenter-Referenzpunkt der Engine).</summary>
+        /// <summary>Bounding box centre over all LODs (the engine's autocenter reference point).</summary>
         public Vec2 BoundingCenter { get; private set; }
 
         public bool IsStraight { get { return Math.Abs(TurnAngle) < 0.01; } }
@@ -65,11 +65,11 @@ namespace DayZRoadBuilder.Core
                 string s;
                 switch (Kind)
                 {
-                    case PartKind.Straight: s = string.Format(CultureInfo.InvariantCulture, "Gerade {0:0.##} m", Length); break;
-                    case PartKind.Curve: s = string.Format(CultureInfo.InvariantCulture, "Kurve {0:0.##}° R{1:0.#} ({2:0.##} m)", Math.Abs(TurnAngle), Radius, Length); break;
-                    case PartKind.EndCap: s = string.Format(CultureInfo.InvariantCulture, "Endstück {0:0.##} m", Length); break;
-                    case PartKind.Crosswalk: s = string.Format(CultureInfo.InvariantCulture, "Zebrastreifen {0:0.##} m", Length); break;
-                    case PartKind.Crossroad: s = "Kreuzung"; break;
+                    case PartKind.Straight: s = string.Format(CultureInfo.InvariantCulture, "Straight {0:0.##} m", Length); break;
+                    case PartKind.Curve: s = string.Format(CultureInfo.InvariantCulture, "Curve {0:0.##}° R{1:0.#} ({2:0.##} m)", Math.Abs(TurnAngle), Radius, Length); break;
+                    case PartKind.EndCap: s = string.Format(CultureInfo.InvariantCulture, "End piece {0:0.##} m", Length); break;
+                    case PartKind.Crosswalk: s = string.Format(CultureInfo.InvariantCulture, "Crosswalk {0:0.##} m", Length); break;
+                    case PartKind.Crossroad: s = "Crossroad"; break;
                     default: s = "?"; break;
                 }
                 return s;
@@ -81,7 +81,7 @@ namespace DayZRoadBuilder.Core
             return Name + "   (" + Description + ")";
         }
 
-        /// <summary>Punkt auf der Mittellinie im Modellkoordinatensystem, t in [0,1] von Anfang bis Ende.</summary>
+        /// <summary>Point on the centreline in model coordinates, t in [0,1] from start to end.</summary>
         public Vec2 CenterlineLocal(double t)
         {
             if (IsStraight)
@@ -92,13 +92,13 @@ namespace DayZRoadBuilder.Core
             return StartCenter + Geo.Rotate(p, StartHeading);
         }
 
-        /// <summary>Fahrtrichtung entlang der Mittellinie bei t.</summary>
+        /// <summary>Driving direction along the centreline at t.</summary>
         public double HeadingLocal(double t)
         {
             return StartHeading + TurnAngle * t;
         }
 
-        /// <summary>Umriss des Teils (linke Kante vorwärts, rechte Kante rückwärts) in Modellkoordinaten.</summary>
+        /// <summary>Outline of the part (left edge forward, right edge backward) in model coordinates.</summary>
         public Vec2[] GetLocalOutline(int segments)
         {
             if (IsStraight || segments < 1) segments = 1;
@@ -114,7 +114,7 @@ namespace DayZRoadBuilder.Core
             }
             if (Kind != PartKind.Crossroad)
             {
-                // Ecken exakt auf die Memorypunkte setzen
+                // snap the corners exactly onto the memory points
                 pts[0] = LB;
                 pts[segments] = LE;
                 pts[segments + 1] = PE;
@@ -123,7 +123,7 @@ namespace DayZRoadBuilder.Core
             return pts;
         }
 
-        /// <summary>Lädt ein Straßenteil aus einer MLOD-P3D. Liefert null, wenn keine Straßen-Memorypunkte vorhanden sind.</summary>
+        /// <summary>Loads a road part from an MLOD P3D. Returns null if the road memory points are missing.</summary>
         public static RoadPart FromFile(string path)
         {
             List<P3dLod> lods = P3dReader.ReadMlod(path);
@@ -140,7 +140,7 @@ namespace DayZRoadBuilder.Core
             part.LE = SelectionCenter(mem, "LE");
             part.PE = SelectionCenter(mem, "PE");
 
-            // Bounding Box über alle LODs mit Punkten
+            // bounding box over all LODs with points
             double minX = double.MaxValue, maxX = double.MinValue, minZ = double.MaxValue, maxZ = double.MinValue;
             foreach (P3dLod l in lods)
             {
@@ -186,7 +186,7 @@ namespace DayZRoadBuilder.Core
         {
             StartCenter = Vec2.Lerp(LB, PB, 0.5);
             EndCenter = Vec2.Lerp(LE, PE, 0.5);
-            // Vorwärtsrichtung = Richtung "links -> rechts" um 90° gegen den Uhrzeigersinn gedreht
+            // forward direction = "left -> right" direction rotated 90° counter-clockwise
             StartHeading = Geo.WrapDeg(Geo.Bearing(PB - LB) - 90.0);
             EndHeading = Geo.WrapDeg(Geo.Bearing(PE - LE) - 90.0);
             TurnAngle = Geo.WrapDeg(EndHeading - StartHeading);
@@ -211,7 +211,7 @@ namespace DayZRoadBuilder.Core
             string lower = Name.ToLowerInvariant();
             if (lower.StartsWith("kr_", StringComparison.Ordinal))
             {
-                Family = "Kreuzungen";
+                Family = "Crossroads";
                 Suffix = Name;
                 Kind = PartKind.Crossroad;
                 return;

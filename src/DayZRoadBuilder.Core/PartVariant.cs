@@ -3,25 +3,25 @@ using System;
 namespace DayZRoadBuilder.Core
 {
     /// <summary>
-    /// Ein Straßenteil in einer bestimmten Einbaurichtung, vorberechnet im "Fahrkoordinatensystem":
-    /// Einfahrt liegt im Ursprung, Fahrtrichtung = +Z. Eine Kurve rückwärts eingebaut ergibt die Gegenkurve
-    /// (so macht es auch das Road-Tool im Terrain Builder).
+    /// A road part in a specific orientation, precomputed in "driving coordinates":
+    /// the entry is at the origin, driving direction = +Z. A curve placed backwards gives the opposite curve
+    /// (this is also how the Terrain Builder road tool does it).
     /// </summary>
     public sealed class PartVariant
     {
         public RoadPart Part { get; private set; }
         public bool Reversed { get; private set; }
-        /// <summary>Objekt-Yaw = aktueller Kurs + YawOffset.</summary>
+        /// <summary>Object yaw = current heading + YawOffset.</summary>
         public double YawOffset { get; private set; }
-        /// <summary>Ausfahrtpunkt relativ zur Einfahrt.</summary>
+        /// <summary>Exit point relative to the entry.</summary>
         public Vec2 Exit { get; private set; }
-        /// <summary>Kursänderung beim Durchfahren (+ = rechts).</summary>
+        /// <summary>Heading change when driving through (+ = right).</summary>
         public double HeadingDelta { get; private set; }
-        /// <summary>Referenzpunkt des Objekts (Position, die exportiert wird) relativ zur Einfahrt.</summary>
+        /// <summary>Object reference point (the exported position) relative to the entry.</summary>
         public Vec2 Center { get; private set; }
-        /// <summary>Referenzpunkt im Modellkoordinatensystem (BBox-Mitte oder Ursprung).</summary>
+        /// <summary>Reference point in model coordinates (bounding box centre or origin).</summary>
         public Vec2 ModelReference { get; private set; }
-        /// <summary>Stützpunkte der Mittellinie (ohne Einfahrt, mit Ausfahrt).</summary>
+        /// <summary>Centreline sample points (without entry, including exit).</summary>
         public Vec2[] Samples { get; private set; }
         public double SampleStep { get; private set; }
         public double Length { get { return Part.Length; } }
@@ -71,7 +71,7 @@ namespace DayZRoadBuilder.Core
 
         public override string ToString()
         {
-            return Part.Name + (Reversed ? " (rückwärts)" : "");
+            return Part.Name + (Reversed ? " (reversed)" : "");
         }
     }
 }

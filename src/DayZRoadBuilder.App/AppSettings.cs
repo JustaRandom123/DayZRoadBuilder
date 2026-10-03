@@ -6,7 +6,7 @@ using System.Text;
 
 namespace DayZRoadBuilder.App
 {
-    /// <summary>Speichert die zuletzt benutzten Einstellungen in %AppData%\DayZRoadBuilder\settings.ini.</summary>
+    /// <summary>Stores the last used settings in %AppData%\DayZRoadBuilder\settings.ini.</summary>
     internal sealed class AppSettings
     {
         private readonly Dictionary<string, string> _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -36,7 +36,7 @@ namespace DayZRoadBuilder.App
             }
             catch
             {
-                // Einstellungen sind optional
+                // settings are optional
             }
             return s;
         }
@@ -53,7 +53,7 @@ namespace DayZRoadBuilder.App
             }
             catch
             {
-                // ignorieren
+                // ignore
             }
         }
 
@@ -94,7 +94,7 @@ namespace DayZRoadBuilder.App
             _values[key] = value ? "1" : "0";
         }
 
-        /// <summary>Gespeicherter Haken-Zustand eines Teils (null = noch nie geändert).</summary>
+        /// <summary>Saved checked state of a part (null = never changed).</summary>
         public bool? GetPartChecked(string partName)
         {
             string v;

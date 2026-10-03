@@ -7,16 +7,16 @@ using System.Threading;
 namespace DayZRoadBuilder.Core
 {
     /// <summary>
-    /// Setzt Straßenteile lückenlos aneinander, sodass die Kette möglichst genau der Soll-Linie folgt.
+    /// Chains road parts together without gaps so that the chain follows the target line as closely as possible.
     ///
-    /// Verfahren: Strahlsuche (Beam Search) über die Stationierung der Linie.
-    /// Ein Zustand = Ende der bisherigen Kette (Position + Fahrtrichtung). Von jedem Zustand aus wird jedes erlaubte Teil
-    /// (Kurven in beide Richtungen) angehängt und bewertet:
-    ///   Kosten = ∫ Abstand² zur Linie entlang der Teil-Mittellinie
-    ///          + Richtungsfehler² am Teilende
-    ///          + Strafe pro Teil + Strafe pro Grad Kurve.
-    /// Die Zustände werden nach erreichter Stationierung in 0,5-m-Fächer sortiert; pro Fach überleben nur die besten N.
-    /// Da jedes Teil exakt an das vorherige anschließt (Memorypunkte LB/PB -> LE/PE), entstehen keine Lücken.
+    /// Method: beam search over the chainage of the line.
+    /// A state = end of the chain so far (position + heading). From every state each allowed part
+    /// (curves in both directions) is appended and scored:
+    ///   cost = ∫ distance² to the line along the part centreline
+    ///        + heading error² at the end of the part
+    ///        + penalty per part + penalty per degree of curve.
+    /// States are sorted into 0.5 m chainage bins; only the best N survive per bin.
+    /// Because every part starts exactly at the exit of the previous one (memory points LB/PB -> LE/PE), there are no gaps.
     /// </summary>
     public static class RoadBuilder
     {
@@ -42,7 +42,7 @@ namespace DayZRoadBuilder.Core
 
             var usable = parts.Where(p => p.Kind == PartKind.Straight || p.Kind == PartKind.Curve || p.Kind == PartKind.Crosswalk).ToList();
             if (usable.Count == 0)
-                throw new InvalidOperationException("Keine Straßenteile ausgewählt.");
+                throw new InvalidOperationException("No road parts selected.");
 
             var variants = new List<PartVariant>();
             foreach (RoadPart p in usable)
@@ -51,13 +51,13 @@ namespace DayZRoadBuilder.Core
                 if (!p.IsStraight)
                     variants.Add(PartVariant.Create(p, true, s.UseBoundingCenter, s.SampleStep));
             }
-            // Lange Teile zuerst (nur relevant bei Kostengleichstand)
+            // long parts first (only matters for equal costs)
             variants = variants.OrderByDescending(v => v.Length).ToList();
 
             PartVariant startCap = null, endCapVar = null;
             if (endCap != null)
             {
-                // Annahme: die Endkante (LE/PE) des Endstücks ist das "offene" Straßenende.
+                // assumption: the end edge (LE/PE) of the end piece is the "open" end of the road
                 if (s.EndCapAtStart) startCap = PartVariant.Create(endCap, !s.FlipEndCaps, s.UseBoundingCenter, s.SampleStep);
                 if (s.EndCapAtEnd) endCapVar = PartVariant.Create(endCap, s.FlipEndCaps, s.UseBoundingCenter, s.SampleStep);
             }
@@ -67,7 +67,7 @@ namespace DayZRoadBuilder.Core
             Vec2 end = path.End;
             double capLen = endCapVar != null ? endCapVar.Length : 0.0;
 
-            // Startzustände
+            // start states
             var bins = new SortedDictionary<int, List<Node>>();
             double h0 = path.StartHeading(Math.Min(3.0, path.Length));
             var roots = new List<Node>();
@@ -148,14 +148,14 @@ namespace DayZRoadBuilder.Core
             {
                 best = furthest;
                 result.ReachedEnd = false;
-                result.Warnings.Add("Das Linienende wurde nicht innerhalb der Toleranz erreicht – Ergebnis endet vorher. Ggf. mehr/kleinere Teile erlauben oder Toleranz erhöhen.");
+                result.Warnings.Add("The end of the line was not reached within the tolerance – the result stops early. Try enabling more/shorter parts or increasing the end tolerance.");
             }
             else
             {
                 result.ReachedEnd = true;
             }
 
-            // Kette rekonstruieren
+            // rebuild the chain
             var chain = new List<Node>();
             for (Node n = best; n != null && n.Parent != null; n = n.Parent)
                 chain.Add(n);
@@ -200,7 +200,7 @@ namespace DayZRoadBuilder.Core
         private static void TryFinish(Node n, RoadPath path, BuildSettings s, double endTol, ref Node best, ref double bestCost)
         {
             double d = Vec2.Distance(n.P, path.End);
-            // Stationierungsbedingung, damit geschlossene Linien (Start = Ende) nicht sofort "fertig" sind
+            // chainage condition so that closed lines (start = end) are not "finished" right away
             bool nearEnd = d <= endTol && n.S >= path.Length - endTol - 2.0;
             if (nearEnd || n.S >= path.Length - 1e-6)
             {
@@ -230,7 +230,7 @@ namespace DayZRoadBuilder.Core
             Vec2 np = st.P + Geo.Rotate(v.Exit, st.H);
             Projection pe = path.Project(np, w0, w1);
             if (pe.S < st.S + binSize && pe.S < path.Length - 1e-6)
-                return null; // kein Fortschritt entlang der Linie
+                return null; // no progress along the line
 
             double nh = Geo.WrapDeg(st.H + v.HeadingDelta);
             double herr = Geo.WrapDeg(nh - path.SegmentHeading(pe.Segment));
@@ -274,7 +274,7 @@ namespace DayZRoadBuilder.Core
             r.RoadLength = len;
             r.EndGap = r.Parts.Count > 0 ? Vec2.Distance(r.Parts[r.Parts.Count - 1].Exit, path.End) : path.Length;
 
-            // Kontrolle: Fugen zwischen den Memorypunkten benachbarter Teile in Weltkoordinaten
+            // sanity check: gaps between the memory points of neighbouring parts in world coordinates
             double gap = 0;
             for (int i = 0; i + 1 < r.Parts.Count; i++)
             {
