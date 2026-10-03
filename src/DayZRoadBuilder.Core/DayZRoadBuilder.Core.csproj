@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>DayZRoadBuilder.Core</RootNamespace>
+    <AssemblyName>DayZRoadBuilder.Core</AssemblyName>
+  </PropertyGroup>
+
+</Project>
