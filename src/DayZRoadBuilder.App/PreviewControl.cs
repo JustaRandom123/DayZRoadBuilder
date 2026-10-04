@@ -17,6 +17,7 @@ namespace DayZRoadBuilder.App
         private readonly List<Vec2[]> _lines = new List<Vec2[]>();
         private readonly List<PlacedPart> _parts = new List<PlacedPart>();
         private readonly List<Vec2[]> _outlines = new List<Vec2[]>();
+        private readonly List<JunctionInfo> _junctions = new List<JunctionInfo>();
 
         private double _cx, _cz;      // world point at the view centre
         private double _scale = 1.0;  // pixels per metre
@@ -40,11 +41,18 @@ namespace DayZRoadBuilder.App
 
         public void SetData(IEnumerable<Vec2[]> lines, IEnumerable<PlacedPart> parts, bool fit)
         {
+            SetData(lines, parts, null, fit);
+        }
+
+        public void SetData(IEnumerable<Vec2[]> lines, IEnumerable<PlacedPart> parts, IEnumerable<JunctionInfo> junctions, bool fit)
+        {
             _lines.Clear();
             _parts.Clear();
             _outlines.Clear();
+            _junctions.Clear();
             _hover = -1;
             if (lines != null) _lines.AddRange(lines);
+            if (junctions != null) _junctions.AddRange(junctions);
             if (parts != null)
             {
                 foreach (PlacedPart p in parts)
@@ -109,10 +117,13 @@ namespace DayZRoadBuilder.App
                 return;
             }
 
-            Color[] fills =
+            // one colour pair per road, crossroads orange, end pieces brown
+            Color[][] fills =
             {
-                Color.FromArgb(110, 70, 130, 200),
-                Color.FromArgb(110, 90, 160, 230)
+                new[] { Color.FromArgb(120, 70, 130, 200), Color.FromArgb(120, 100, 165, 235) },
+                new[] { Color.FromArgb(120, 60, 160, 105), Color.FromArgb(120, 110, 200, 150) },
+                new[] { Color.FromArgb(120, 150, 100, 200), Color.FromArgb(120, 185, 145, 230) },
+                new[] { Color.FromArgb(120, 40, 160, 170), Color.FromArgb(120, 95, 200, 205) }
             };
             using (var outline = new Pen(Color.FromArgb(220, 160, 200, 255), 1f))
             using (var hoverPen = new Pen(Color.Yellow, 2f))
@@ -122,7 +133,12 @@ namespace DayZRoadBuilder.App
                 for (int i = 0; i < _outlines.Count; i++)
                 {
                     PointF[] pts = Array.ConvertAll(_outlines[i], ToScreen);
-                    using (var b = new SolidBrush(_parts[i].Part.Kind == PartKind.EndCap ? Color.FromArgb(120, 200, 140, 60) : fills[i % 2]))
+                    PlacedPart pp = _parts[i];
+                    Color fill;
+                    if (pp.Part.Kind == PartKind.Crossroad) fill = Color.FromArgb(170, 235, 165, 50);
+                    else if (pp.Part.Kind == PartKind.EndCap) fill = Color.FromArgb(120, 200, 140, 60);
+                    else fill = fills[Math.Abs(pp.RoadIndex) % fills.Length][i % 2];
+                    using (var b = new SolidBrush(fill))
                         g.FillPolygon(b, pts);
                     g.DrawPolygon(i == _hover ? hoverPen : outline, pts);
                 }
@@ -151,6 +167,18 @@ namespace DayZRoadBuilder.App
                     PointF s = pts[0], en = pts[pts.Length - 1];
                     g.FillEllipse(startBrush, s.X - 4, s.Y - 4, 8, 8);
                     g.FillEllipse(endBrush, en.X - 4, en.Y - 4, 8, 8);
+                }
+            }
+
+            using (var okPen = new Pen(Color.Gold, 2f))
+            using (var badPen = new Pen(Color.Red, 2f))
+            using (var textBrush = new SolidBrush(Color.White))
+            {
+                foreach (JunctionInfo j in _junctions)
+                {
+                    PointF c = ToScreen(j.Point);
+                    g.DrawEllipse(j.Placed != null ? okPen : badPen, c.X - 9, c.Y - 9, 18, 18);
+                    g.DrawString(j.Type + j.Id.ToString(CultureInfo.InvariantCulture), Font, textBrush, c.X + 10, c.Y - 18);
                 }
             }
         }

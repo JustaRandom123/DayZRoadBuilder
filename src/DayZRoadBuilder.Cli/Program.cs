@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using DayZRoadBuilder.Core;
+using DayZRoadBuilder.Core.Tv4p;
 
 namespace DayZRoadBuilder.Cli
 {
@@ -46,6 +47,13 @@ namespace DayZRoadBuilder.Cli
             Console.WriteLine("  --invert-yaw          invert the yaw sign");
             Console.WriteLine("  --yaw-offset <deg>    yaw offset");
             Console.WriteLine("  --offset-x <m> / --offset-y <m>   coordinate offset");
+            Console.WriteLine("  --no-crossroads       do not place crossroad parts at junctions");
+            Console.WriteLine("  --t-part <name>       T-junction part (default: automatic)");
+            Console.WriteLine("  --x-part <name>       X-crossroad part (default: automatic)");
+            Console.WriteLine("  --snap <m>            distance at which line ends are joined (default 1.5)");
+            Console.WriteLine("  --same-type-side-roads  build side roads with the selected type instead of the crossroad's side road type");
+            Console.WriteLine("  --tv4p <project.tv4p> --tv4p-out <new.tv4p>   also write the roads as Road Tool roads into a copy of the project");
+            Console.WriteLine("  --tv4p-info <project.tv4p>   show the Road Tool road types / crossroads of a project");
             Console.WriteLine("  --list                only list the road types / parts found");
         }
 
@@ -66,6 +74,15 @@ namespace DayZRoadBuilder.Cli
                 {
                     flags.Add(a);
                 }
+            }
+
+            string infoFile;
+            if (opt.TryGetValue("--tv4p-info", out infoFile))
+            {
+                Tv4pProjectInfo pi = Tv4pRoadWriter.ReadInfo(infoFile);
+                Console.WriteLine(pi.ExistingRoads + " Road Tool roads in the project.");
+                Console.WriteLine(pi.Describe());
+                return 0;
             }
 
             if (!opt.ContainsKey("--parts") || flags.Contains("--help"))
@@ -130,28 +147,49 @@ namespace DayZRoadBuilder.Cli
                 OffsetY = GetD(opt, "--offset-y", 0)
             };
 
-            List<ShapeRecord> shapes = ShapefileReader.Read(opt["--shp"]);
-            var all = new List<PlacedPart>();
-            int roadNo = 0;
-            foreach (ShapeRecord rec in shapes)
+            var ns = new NetworkSettings
             {
-                foreach (List<Vec2> line in rec.Parts)
-                {
-                    var path = new RoadPath(line) { Name = "Record " + rec.RecordNumber };
-                    if (flags.Contains("--reverse")) path = path.Reversed();
-                    BuildResult r = RoadBuilder.Build(path, parts, endCap, bs, null, CancellationToken.None);
-                    foreach (PlacedPart p in r.Parts) p.RoadIndex = roadNo;
-                    all.AddRange(r.Parts);
-                    roadNo++;
-                    Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                        "{0}: line {1:F1} m -> {2} parts, road {3:F1} m, max. deviation {4:F2} m, RMS {5:F2} m, end gap {6:F2} m, max. joint gap {7:F4} m, {8:F0} ms",
-                        path.Name, path.Length, r.Parts.Count, r.RoadLength, r.MaxDeviation, r.RmsDeviation, r.EndGap, r.MaxJointGap, r.Duration.TotalMilliseconds));
-                    foreach (string w in r.Warnings) Console.WriteLine("  Warning: " + w);
-                }
+                UseCrossroads = !flags.Contains("--no-crossroads"),
+                SnapDistance = GetD(opt, "--snap", 1.5),
+                TJunctionPart = opt.ContainsKey("--t-part") ? opt["--t-part"] : null,
+                XJunctionPart = opt.ContainsKey("--x-part") ? opt["--x-part"] : null,
+                SideRoadsUseCrossroadType = !flags.Contains("--same-type-side-roads"),
+                ReverseFreeRoads = flags.Contains("--reverse")
+            };
+
+            List<ShapeRecord> shapes = ShapefileReader.Read(opt["--shp"]);
+            List<List<Vec2>> lines = shapes.SelectMany(s => s.Parts).ToList();
+            NetworkResult net = NetworkBuilder.Build(lines, lib, family, parts, endCap, bs, ns, null, CancellationToken.None);
+
+            foreach (JunctionInfo j in net.Junctions)
+            {
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "Junction {0} ({1}, {2} lines) at {3}: {4}{5}",
+                    j.Id, j.Type, j.Degree, j.Point,
+                    j.Placed != null ? j.Placed.Part.Name + " placed" : "no crossroad",
+                    string.IsNullOrEmpty(j.Note) ? "" : " – " + j.Note));
+            }
+            foreach (BuildResult r in net.Roads)
+            {
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                    "{0}: line {1:F1} m -> {2} parts, road {3:F1} m, max. deviation {4:F2} m, RMS {5:F2} m, end gap {6:F2} m, max. joint gap {7:F4} m, {8:F0} ms",
+                    r.Path.Name, r.Path.Length, r.Parts.Count, r.RoadLength, r.MaxDeviation, r.RmsDeviation, r.EndGap, r.MaxJointGap, r.Duration.TotalMilliseconds));
+                foreach (string w in r.Warnings) Console.WriteLine("  Warning: " + w);
             }
 
+            List<PlacedPart> all = net.AllParts.ToList();
             TerrainBuilderExporter.Write(opt["--out"], all, es);
             Console.WriteLine(all.Count + " objects written: " + Path.GetFullPath(opt["--out"]));
+
+            string tvIn, tvOut;
+            if (opt.TryGetValue("--tv4p", out tvIn))
+            {
+                if (!opt.TryGetValue("--tv4p-out", out tvOut))
+                    throw new InvalidOperationException("--tv4p needs --tv4p-out <new file>.");
+                Tv4pExportResult tr = Tv4pRoadWriter.Write(tvIn, tvOut, net, es);
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0} Road Tool roads ({1} parts) added to a copy of the project ({2} roads existed): {3}",
+                    tr.RoadsWritten, tr.PartsWritten, tr.ExistingRoads, Path.GetFullPath(tvOut)));
+                foreach (string w in tr.Warnings) Console.WriteLine("  Warning: " + w);
+            }
             return 0;
         }
 

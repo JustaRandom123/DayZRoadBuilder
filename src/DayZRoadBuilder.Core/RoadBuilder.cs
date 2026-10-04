@@ -17,6 +17,10 @@ namespace DayZRoadBuilder.Core
     ///        + penalty per part + penalty per degree of curve.
     /// States are sorted into 0.5 m chainage bins; only the best N survive per bin.
     /// Because every part starts exactly at the exit of the previous one (memory points LB/PB -> LE/PE), there are no gaps.
+    ///
+    /// Crossroads: if <see cref="RoadConstraints.Junctions"/> is set, the crossroad part is inserted into the chain
+    /// like a 12.5 m straight. Normal parts may not run past a junction until its crossroad has been placed, and a road
+    /// only counts as finished when all its crossroads are placed.
     /// </summary>
     public static class RoadBuilder
     {
@@ -28,15 +32,45 @@ namespace DayZRoadBuilder.Core
             public double Cost;
             public double Lat;
             public double HErr;
+            public int NextJ;
             public Node Parent;
             public PartVariant Variant;
+            public JunctionWaypoint Junction;
+        }
+
+        private sealed class JunctionOptions
+        {
+            public JunctionWaypoint Waypoint;
+            public List<PartVariant> Variants = new List<PartVariant>();
+            public double Half;
+        }
+
+        /// <summary>Context of one search run.</summary>
+        private sealed class Search
+        {
+            public RoadPath Path;
+            public BuildSettings S;
+            public RoadConstraints C;
+            public List<JunctionOptions> Junctions;
+            public double BinSize;
+            public double EndTol;
+            public double EndWeight;
+            public Node Best;
+            public double BestCost = double.MaxValue;
         }
 
         public static BuildResult Build(RoadPath path, IList<RoadPart> parts, RoadPart endCap, BuildSettings s,
                                         IProgress<double> progress, CancellationToken ct)
         {
+            return Build(path, parts, endCap, s, null, progress, ct);
+        }
+
+        public static BuildResult Build(RoadPath path, IList<RoadPart> parts, RoadPart endCap, BuildSettings s,
+                                        RoadConstraints constraints, IProgress<double> progress, CancellationToken ct)
+        {
             if (path == null) throw new ArgumentNullException("path");
             if (s == null) s = new BuildSettings();
+            if (constraints == null) constraints = new RoadConstraints();
             var sw = Stopwatch.StartNew();
             var result = new BuildResult { Path = path };
 
@@ -58,41 +92,64 @@ namespace DayZRoadBuilder.Core
             if (endCap != null)
             {
                 // assumption: the end edge (LE/PE) of the end piece is the "open" end of the road
-                if (s.EndCapAtStart) startCap = PartVariant.Create(endCap, !s.FlipEndCaps, s.UseBoundingCenter, s.SampleStep);
-                if (s.EndCapAtEnd) endCapVar = PartVariant.Create(endCap, s.FlipEndCaps, s.UseBoundingCenter, s.SampleStep);
+                if (s.EndCapAtStart && constraints.AllowStartCap) startCap = PartVariant.Create(endCap, !s.FlipEndCaps, s.UseBoundingCenter, s.SampleStep);
+                if (s.EndCapAtEnd && constraints.AllowEndCap) endCapVar = PartVariant.Create(endCap, s.FlipEndCaps, s.UseBoundingCenter, s.SampleStep);
             }
 
-            double binSize = Math.Max(0.05, s.BinSize);
-            double endTol = Math.Max(0.1, s.EndTolerance);
+            var search = new Search
+            {
+                Path = path,
+                S = s,
+                C = constraints,
+                BinSize = Math.Max(0.05, s.BinSize),
+                EndTol = Math.Max(0.1, s.EndTolerance),
+                EndWeight = constraints.EndIsFixed ? s.FixedEndWeight : s.EndWeight,
+                Junctions = new List<JunctionOptions>()
+            };
+            foreach (JunctionWaypoint j in constraints.Junctions.OrderBy(j => j.S))
+            {
+                var jo = new JunctionOptions { Waypoint = j, Half = j.Part.Length / 2.0 };
+                if (j.AllowForward) jo.Variants.Add(PartVariant.Create(j.Part, false, s.UseBoundingCenter, s.SampleStep));
+                if (j.AllowReversed) jo.Variants.Add(PartVariant.Create(j.Part, true, s.UseBoundingCenter, s.SampleStep));
+                if (jo.Variants.Count > 0) search.Junctions.Add(jo);
+            }
+
             Vec2 end = path.End;
             double capLen = endCapVar != null ? endCapVar.Length : 0.0;
 
             // start states
             var bins = new SortedDictionary<int, List<Node>>();
-            double h0 = path.StartHeading(Math.Min(3.0, path.Length));
             var roots = new List<Node>();
-            double range = Math.Max(0, s.StartHeadingRange);
-            double step = Math.Max(0.05, s.StartHeadingStep);
-            for (double off = -range; off <= range + 1e-9; off += step)
+            if (constraints.StartHeading.HasValue)
             {
-                roots.Add(new Node { P = path.Start, H = Geo.WrapDeg(h0 + off), S = 0, Cost = s.HeadingWeight * off * off });
-                if (range <= 0) break;
+                roots.Add(new Node { P = path.Start, H = Geo.WrapDeg(constraints.StartHeading.Value), S = 0, Cost = 0 });
+            }
+            else
+            {
+                double h0 = path.StartHeading(Math.Min(3.0, path.Length));
+                double range = Math.Max(0, s.StartHeadingRange);
+                double step = Math.Max(0.05, s.StartHeadingStep);
+                for (double off = -range; off <= range + 1e-9; off += step)
+                {
+                    roots.Add(new Node { P = path.Start, H = Geo.WrapDeg(h0 + off), S = 0, Cost = s.HeadingWeight * off * off });
+                    if (range <= 0) break;
+                }
             }
             foreach (Node r in roots)
             {
                 Node start = r;
                 if (startCap != null)
                 {
-                    start = Extend(path, r, startCap, s, binSize);
+                    start = Extend(search, r, startCap, null);
                     if (start == null) continue;
                 }
-                AddToBin(bins, start, binSize);
+                // a road can also start directly with a crossroad
+                AddToBin(bins, start, search.BinSize);
             }
 
-            Node best = null;
-            double bestCost = double.MaxValue;
             Node furthest = null;
             int processed = 0;
+            var children = new List<Node>();
 
             while (bins.Count > 0)
             {
@@ -109,41 +166,59 @@ namespace DayZRoadBuilder.Core
                     if (kept >= s.BeamWidth) break;
                     long k1 = (long)Math.Round(st.Lat / 0.2);
                     long k2 = (long)Math.Round(st.HErr / 0.5);
-                    long hk = (k1 << 32) ^ (k2 & 0xFFFFFFFFL);
+                    long hk = (k1 << 32) ^ (k2 & 0xFFFFFFFFL) ^ ((long)st.NextJ << 56);
                     if (!seen.Add(hk)) continue;
                     kept++;
 
+                    children.Clear();
                     foreach (PartVariant v in variants)
                     {
-                        Node c = Extend(path, st, v, s, binSize);
-                        if (c == null) continue;
+                        Node c = Extend(search, st, v, null);
+                        if (c != null) children.Add(c);
+                    }
+                    if (st.NextJ < search.Junctions.Count)
+                    {
+                        JunctionOptions jo = search.Junctions[st.NextJ];
+                        if (st.S >= jo.Waypoint.S - jo.Half - s.CrossroadWindow)
+                        {
+                            foreach (PartVariant v in jo.Variants)
+                            {
+                                Node c = Extend(search, st, v, jo);
+                                if (c != null) children.Add(c);
+                            }
+                        }
+                    }
 
-                        if (furthest == null || c.S > furthest.S + 1e-6 || (Math.Abs(c.S - furthest.S) < 1e-6 && c.Cost < furthest.Cost))
+                    foreach (Node c in children)
+                    {
+                        if (furthest == null || c.NextJ > furthest.NextJ ||
+                            (c.NextJ == furthest.NextJ && (c.S > furthest.S + 1e-6 || (Math.Abs(c.S - furthest.S) < 1e-6 && c.Cost < furthest.Cost))))
                             furthest = c;
 
                         if (endCapVar != null)
                         {
-                            if (Vec2.Distance(c.P, end) <= capLen + endTol + 1.0)
+                            if (Vec2.Distance(c.P, end) <= capLen + search.EndTol + 1.0)
                             {
-                                Node cc = Extend(path, c, endCapVar, s, binSize);
-                                if (cc != null) TryFinish(cc, path, s, endTol, ref best, ref bestCost);
+                                Node cc = Extend(search, c, endCapVar, null);
+                                if (cc != null) TryFinish(search, cc);
                             }
                         }
                         else
                         {
-                            TryFinish(c, path, s, endTol, ref best, ref bestCost);
+                            TryFinish(search, c);
                         }
 
                         if (c.S < path.Length - 1e-6)
-                            AddToBin(bins, c, binSize);
+                            AddToBin(bins, c, search.BinSize);
                     }
                 }
 
                 processed++;
                 if (progress != null && (processed & 31) == 0)
-                    progress.Report(Math.Min(1.0, key * binSize / path.Length));
+                    progress.Report(Math.Min(1.0, key * search.BinSize / path.Length));
             }
 
+            Node best = search.Best;
             if (best == null)
             {
                 best = furthest;
@@ -161,11 +236,12 @@ namespace DayZRoadBuilder.Core
                 chain.Add(n);
             chain.Reverse();
 
+            var placedJunctions = new HashSet<int>();
             foreach (Node c in chain)
             {
                 Node p = c.Parent;
                 PartVariant v = c.Variant;
-                result.Parts.Add(new PlacedPart
+                var pp = new PlacedPart
                 {
                     Part = v.Part,
                     Reversed = v.Reversed,
@@ -176,7 +252,20 @@ namespace DayZRoadBuilder.Core
                     Exit = c.P,
                     EntryHeading = Geo.Norm360(p.H),
                     ExitHeading = Geo.Norm360(c.H)
-                });
+                };
+                if (c.Junction != null)
+                {
+                    pp.JunctionId = c.Junction.Id;
+                    placedJunctions.Add(c.Junction.Id);
+                }
+                result.Parts.Add(pp);
+            }
+            foreach (JunctionOptions jo in search.Junctions)
+            {
+                if (!placedJunctions.Contains(jo.Waypoint.Id))
+                    result.Warnings.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                        "Crossroad {0} at {1} could not be placed (junctions too close together or line too short?).",
+                        jo.Waypoint.Part.Name, jo.Waypoint.Point));
             }
 
             ComputeStats(result, chain);
@@ -197,24 +286,33 @@ namespace DayZRoadBuilder.Core
             l.Add(n);
         }
 
-        private static void TryFinish(Node n, RoadPath path, BuildSettings s, double endTol, ref Node best, ref double bestCost)
+        private static void TryFinish(Search x, Node n)
         {
-            double d = Vec2.Distance(n.P, path.End);
+            if (n.NextJ < x.Junctions.Count) return; // not all crossroads placed yet
+
+            double d = Vec2.Distance(n.P, x.Path.End);
             // chainage condition so that closed lines (start = end) are not "finished" right away
-            bool nearEnd = d <= endTol && n.S >= path.Length - endTol - 2.0;
-            if (nearEnd || n.S >= path.Length - 1e-6)
+            bool nearEnd = d <= x.EndTol && n.S >= x.Path.Length - x.EndTol - 2.0;
+            if (nearEnd || n.S >= x.Path.Length - 1e-6)
             {
-                double fc = n.Cost + s.EndWeight * d * d;
-                if (fc < bestCost)
+                double fc = n.Cost + x.EndWeight * d * d;
+                if (x.C.EndHeading.HasValue)
                 {
-                    bestCost = fc;
-                    best = n;
+                    double he = Geo.WrapDeg(n.H - x.C.EndHeading.Value);
+                    fc += x.S.EndHeadingWeight * he * he;
+                }
+                if (fc < x.BestCost)
+                {
+                    x.BestCost = fc;
+                    x.Best = n;
                 }
             }
         }
 
-        private static Node Extend(RoadPath path, Node st, PartVariant v, BuildSettings s, double binSize)
+        private static Node Extend(Search x, Node st, PartVariant v, JunctionOptions placing)
         {
+            RoadPath path = x.Path;
+            BuildSettings s = x.S;
             double cost = st.Cost + s.PiecePenalty + s.TurnPenalty * v.AbsTurn;
             double w0 = st.S - 2.0;
             double w1 = st.S + v.Length * 1.5 + 10.0;
@@ -229,8 +327,24 @@ namespace DayZRoadBuilder.Core
 
             Vec2 np = st.P + Geo.Rotate(v.Exit, st.H);
             Projection pe = path.Project(np, w0, w1);
-            if (pe.S < st.S + binSize && pe.S < path.Length - 1e-6)
+            if (pe.S < st.S + x.BinSize && pe.S < path.Length - 1e-6)
                 return null; // no progress along the line
+
+            int nextJ = st.NextJ;
+            if (placing != null)
+            {
+                // the crossroad should sit on the junction point
+                Vec2 centre = st.P + Geo.Rotate(v.Exit * 0.5, st.H);
+                cost += s.CrossroadCenterWeight * (centre - placing.Waypoint.Point).LengthSquared;
+                nextJ++;
+            }
+            else if (nextJ < x.Junctions.Count)
+            {
+                // normal parts must not run past the next junction before its crossroad is placed
+                JunctionOptions jo = x.Junctions[nextJ];
+                if (pe.S > jo.Waypoint.S - jo.Half + s.CrossroadWindow)
+                    return null;
+            }
 
             double nh = Geo.WrapDeg(st.H + v.HeadingDelta);
             double herr = Geo.WrapDeg(nh - path.SegmentHeading(pe.Segment));
@@ -244,8 +358,10 @@ namespace DayZRoadBuilder.Core
                 Cost = cost,
                 Lat = pe.Side * Math.Sqrt(pe.Dist2),
                 HErr = herr,
+                NextJ = nextJ,
                 Parent = st,
-                Variant = v
+                Variant = v,
+                Junction = placing != null ? placing.Waypoint : null
             };
         }
 
@@ -274,17 +390,15 @@ namespace DayZRoadBuilder.Core
             r.RoadLength = len;
             r.EndGap = r.Parts.Count > 0 ? Vec2.Distance(r.Parts[r.Parts.Count - 1].Exit, path.End) : path.Length;
 
-            // sanity check: gaps between the memory points of neighbouring parts in world coordinates
+            // sanity check: gaps between the edge centres of neighbouring parts in world coordinates
             double gap = 0;
             for (int i = 0; i + 1 < r.Parts.Count; i++)
             {
                 PlacedPart a = r.Parts[i];
                 PlacedPart b = r.Parts[i + 1];
-                Vec2 aL = a.Reversed ? a.ToWorld(a.Part.PB) : a.ToWorld(a.Part.LE);
-                Vec2 aR = a.Reversed ? a.ToWorld(a.Part.LB) : a.ToWorld(a.Part.PE);
-                Vec2 bL = b.Reversed ? b.ToWorld(b.Part.PE) : b.ToWorld(b.Part.LB);
-                Vec2 bR = b.Reversed ? b.ToWorld(b.Part.LE) : b.ToWorld(b.Part.PB);
-                gap = Math.Max(gap, Math.Max(Vec2.Distance(aL, bL), Vec2.Distance(aR, bR)));
+                Vec2 aExit = a.Reversed ? a.ToWorld(a.Part.StartCenter) : a.ToWorld(a.Part.EndCenter);
+                Vec2 bEntry = b.Reversed ? b.ToWorld(b.Part.EndCenter) : b.ToWorld(b.Part.StartCenter);
+                gap = Math.Max(gap, Vec2.Distance(aExit, bEntry));
             }
             r.MaxJointGap = gap;
         }
